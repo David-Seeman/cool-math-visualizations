@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Modular Harmony Field</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <style>
+        @keyframes float {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-10px); }
+        }
+        .float-animation {
+            animation: float 6s ease-in-out infinite;
+        }
+    </style>
+</head>
+<body class="bg-slate-900 overflow-hidden">
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef, useMemo } = React;
+
+        function ModularHarmonyField() {
+            const canvasRef = useRef(null);
+            const animationRef = useRef();
+            const timeRef = useRef(0);
+            const [dimensions, setDimensions] = useState({ width: window.innerWidth, height: window.innerHeight });
+
+            useEffect(() => {
+                const handleResize = () => {
+                    setDimensions({ width: window.innerWidth, height: window.innerHeight });
+                };
+                window.addEventListener('resize', handleResize);
+                return () => window.removeEventListener('resize', handleResize);
+            }, []);
+
+            useEffect(() => {
+                const canvas = canvasRef.current;
+                if (!canvas) return;
+                
+                const ctx = canvas.getContext('2d');
+                canvas.width = dimensions.width;
+                canvas.height = dimensions.height;
+
+                const particles = [];
+                const numParticles = 47; // Prime number for interesting patterns
+                const centerX = canvas.width / 2;
+                const centerY = canvas.height / 2;
+                const baseRadius = Math.min(canvas.width, canvas.height) * 0.35;
+
+                // Create particles in a modular arithmetic pattern
+                for (let i = 0; i < numParticles; i++) {
+                    const angle = (i * 2 * Math.PI) / numParticles;
+                    const modValue = (i * i * 7) % numParticles; // Quadratic residue pattern
+                    const radiusMultiplier = 0.3 + (modValue / numParticles) * 0.7;
+                    
+                    particles.push({
+                        id: i,
+                        baseAngle: angle,
+                        radiusMultiplier: radiusMultiplier,
+                        phase: (i * Math.PI) / 12,
+                        colorPhase: (i * 360) / numParticles,
+                        size: 3 + (modValue % 5),
+                        connections: []
+                    });
+                }
+
+                // Create connections based on modular arithmetic relationships
+                particles.forEach((p1, i) => {
+                    particles.forEach((p2, j) => {
+                        if (i < j) {
+                            const diff = Math.abs(i - j);
+                            const modDiff = (i * j) % 17; // Another prime for variety
+                            if (modDiff < 5 || diff === 1 || diff === numParticles - 1) {
+                                p1.connections.push(j);
+                            }
+                        }
+                    });
+                });
+
+                const animate = () => {
+                    ctx.fillStyle = 'rgba(15, 23, 42, 0.1)'; // Slight trail effect
+                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+                    const time = timeRef.current * 0.001;
+
+                    // Draw connections
+                    particles.forEach((p1, i) => {
+                        p1.connections.forEach(j => {
+                            const p2 = particles[j];
+                            
+                            const angle1 = p1.baseAngle + Math.sin(time + p1.phase) * 0.5;
+                            const angle2 = p2.baseAngle + Math.sin(time + p2.phase) * 0.5;
+                            
+                            const radius1 = baseRadius * p1.radiusMultiplier * (1 + 0.2 * Math.sin(time * 2 + p1.phase));
+                            const radius2 = baseRadius * p2.radiusMultiplier * (1 + 0.2 * Math.sin(time * 2 + p2.phase));
+                            
+                            const x1 = centerX + Math.cos(angle1) * radius1;
+                            const y1 = centerY + Math.sin(angle1) * radius1;
+                            const x2 = centerX + Math.cos(angle2) * radius2;
+                            const y2 = centerY + Math.sin(angle2) * radius2;
+
+                            const distance = Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2);
+                            const opacity = Math.max(0, 1 - distance / (baseRadius * 2)) * 0.3;
+                            
+                            const hue = (p1.colorPhase + p2.colorPhase) / 2 + time * 30;
+                            
+                            ctx.strokeStyle = `hsla(${hue % 360}, 70%, 60%, ${opacity})`;
+                            ctx.lineWidth = 1;
+                            ctx.beginPath();
+                            ctx.moveTo(x1, y1);
+                            
+                            // Add slight curve to the connection
+                            const midX = (x1 + x2) / 2 + Math.sin(time * 3 + i + j) * 20;
+                            const midY = (y1 + y2) / 2 + Math.cos(time * 3 + i + j) * 20;
+                            ctx.quadraticCurveTo(midX, midY, x2, y2);
+                            
+                            ctx.stroke();
+                        });
+                    });
+
+                    // Draw particles
+                    particles.forEach((particle, i) => {
+                        const angle = particle.baseAngle + Math.sin(time + particle.phase) * 0.5;
+                        const radius = baseRadius * particle.radiusMultiplier * (1 + 0.2 * Math.sin(time * 2 + particle.phase));
+                        
+                        const x = centerX + Math.cos(angle) * radius;
+                        const y = centerY + Math.sin(angle) * radius;
+
+                        // Outer glow
+                        const gradient = ctx.createRadialGradient(x, y, 0, x, y, particle.size * 3);
+                        const hue = particle.colorPhase + time * 30;
+                        gradient.addColorStop(0, `hsla(${hue % 360}, 70%, 70%, 0.8)`);
+                        gradient.addColorStop(0.5, `hsla(${hue % 360}, 70%, 60%, 0.3)`);
+                        gradient.addColorStop(1, `hsla(${hue % 360}, 70%, 50%, 0)`);
+                        
+                        ctx.fillStyle = gradient;
+                        ctx.beginPath();
+                        ctx.arc(x, y, particle.size * 3, 0, Math.PI * 2);
+                        ctx.fill();
+
+                        // Inner core
+                        ctx.fillStyle = `hsla(${hue % 360}, 80%, 90%, 0.9)`;
+                        ctx.beginPath();
+                        ctx.arc(x, y, particle.size * (1 + 0.3 * Math.sin(time * 5 + particle.phase)), 0, Math.PI * 2);
+                        ctx.fill();
+                    });
+
+                    // Draw center attractor
+                    const attractorSize = 8 + Math.sin(time * 2) * 3;
+                    const attractorGradient = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, attractorSize * 4);
+                    attractorGradient.addColorStop(0, 'rgba(147, 51, 234, 0.6)');
+                    attractorGradient.addColorStop(0.5, 'rgba(147, 51, 234, 0.2)');
+                    attractorGradient.addColorStop(1, 'rgba(147, 51, 234, 0)');
+                    
+                    ctx.fillStyle = attractorGradient;
+                    ctx.beginPath();
+                    ctx.arc(centerX, centerY, attractorSize * 4, 0, Math.PI * 2);
+                    ctx.fill();
+                    
+                    ctx.fillStyle = 'rgba(219, 191, 255, 0.9)';
+                    ctx.beginPath();
+                    ctx.arc(centerX, centerY, attractorSize, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    timeRef.current += 16;
+                    animationRef.current = requestAnimationFrame(animate);
+                };
+
+                animate();
+
+                return () => {
+                    if (animationRef.current) {
+                        cancelAnimationFrame(animationRef.current);
+                    }
+                };
+            }, [dimensions]);
+
+            return (
+                <div className="relative w-screen h-screen bg-slate-900">
+                    <canvas 
+                        ref={canvasRef}
+                        className="absolute inset-0"
+                    />
+                    <div className="absolute top-8 left-8 text-white/80 backdrop-blur-sm bg-slate-900/30 p-4 rounded-lg float-animation">
+                        <h1 className="text-2xl font-light mb-2 text-purple-300">Modular Harmony Field</h1>
+                        <p className="text-sm text-slate-400 max-w-xs">
+                            Points dance in orbits defined by quadratic residues mod 47, 
+                            connected by threads of mathematical affinity
+                        </p>
+                    </div>
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<ModularHarmonyField />);
+    </script>
+</body>
+</html>
