@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mathematical Silk</title>
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background: #f8f8f8;
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+
+        function MathematicalSilk() {
+            const canvasRef = useRef(null);
+            const animationRef = useRef(null);
+            const timeRef = useRef(0);
+            const threadsRef = useRef([]);
+            const plucksRef = useRef([]);
+
+            useEffect(() => {
+                const canvas = canvasRef.current;
+                const ctx = canvas.getContext('2d');
+                
+                const resize = () => {
+                    canvas.width = window.innerWidth;
+                    canvas.height = window.innerHeight;
+                    initializeThreads();
+                };
+                
+                const initializeThreads = () => {
+                    threadsRef.current = [];
+                    const threadCount = 40;
+                    
+                    for (let i = 0; i < threadCount; i++) {
+                        threadsRef.current.push({
+                            id: i,
+                            baseY: (canvas.height / threadCount) * i + canvas.height * 0.1,
+                            phase: Math.random() * Math.PI * 2,
+                            frequency: 0.5 + Math.random() * 0.5,
+                            amplitude: 20 + Math.random() * 30,
+                            tension: 0.3 + Math.random() * 0.4,
+                            nodes: []
+                        });
+                    }
+                };
+                
+                resize();
+                window.addEventListener('resize', resize);
+
+                const animate = () => {
+                    timeRef.current += 0.005; // Slow progression
+                    
+                    // Very soft fade
+                    ctx.fillStyle = 'rgba(248, 248, 248, 0.08)';
+                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+                    
+                    // Occasionally create a pluck
+                    if (Math.random() < 0.01) {
+                        plucksRef.current.push({
+                            x: Math.random() * canvas.width,
+                            y: Math.random() * canvas.height,
+                            radius: 0,
+                            maxRadius: 200 + Math.random() * 100,
+                            life: 1.0
+                        });
+                    }
+                    
+                    // Update and draw plucks (ripples)
+                    plucksRef.current = plucksRef.current.filter(pluck => {
+                        pluck.radius += 0.5;
+                        pluck.life = 1 - (pluck.radius / pluck.maxRadius);
+                        
+                        if (pluck.life <= 0) return false;
+                        
+                        ctx.beginPath();
+                        ctx.arc(pluck.x, pluck.y, pluck.radius, 0, Math.PI * 2);
+                        ctx.strokeStyle = `rgba(200, 200, 210, ${pluck.life * 0.1})`;
+                        ctx.lineWidth = pluck.life * 0.5;
+                        ctx.stroke();
+                        
+                        return true;
+                    });
+                    
+                    // Draw mathematical silk threads
+                    threadsRef.current.forEach((thread, threadIndex) => {
+                        ctx.beginPath();
+                        
+                        const nodeCount = 100;
+                        thread.nodes = [];
+                        
+                        for (let i = 0; i <= nodeCount; i++) {
+                            const x = (canvas.width / nodeCount) * i;
+                            const baseY = thread.baseY;
+                            
+                            // Mathematical field equation
+                            let y = baseY;
+                            
+                            // Primary wave
+                            y += Math.sin(x * 0.003 + timeRef.current * thread.frequency + thread.phase) * thread.amplitude;
+                            
+                            // Secondary harmonics
+                            y += Math.sin(x * 0.007 - timeRef.current * 0.3) * 10;
+                            y += Math.cos(x * 0.002 + timeRef.current * 0.2) * 15;
+                            
+                            // Influence from nearby threads (magnetic field-like interaction)
+                            threadsRef.current.forEach((otherThread, otherIndex) => {
+                                if (Math.abs(otherIndex - threadIndex) <= 2 && otherIndex !== threadIndex) {
+                                    const influence = Math.sin(x * 0.005 + otherThread.phase) * 5;
+                                    y += influence * (1 / (Math.abs(otherIndex - threadIndex) + 1));
+                                }
+                            });
+                            
+                            // Influence from plucks
+                            plucksRef.current.forEach(pluck => {
+                                const distance = Math.sqrt(Math.pow(x - pluck.x, 2) + Math.pow(y - pluck.y, 2));
+                                if (distance < pluck.radius + 50 && distance > pluck.radius - 50) {
+                                    const waveInfluence = Math.sin((distance - pluck.radius) * 0.1) * pluck.life * 10;
+                                    y += waveInfluence;
+                                }
+                            });
+                            
+                            thread.nodes.push({ x, y });
+                            
+                            if (i === 0) {
+                                ctx.moveTo(x, y);
+                            } else {
+                                ctx.lineTo(x, y);
+                            }
+                        }
+                        
+                        // Draw main thread
+                        const opacity = 0.15 + Math.sin(timeRef.current * 0.5 + thread.phase) * 0.05;
+                        ctx.strokeStyle = `rgba(170, 170, 180, ${opacity})`;
+                        ctx.lineWidth = 0.5;
+                        ctx.stroke();
+                        
+                        // Draw tension points (nodes that connect to neighboring threads)
+                        if (threadIndex < threadsRef.current.length - 1) {
+                            const nextThread = threadsRef.current[threadIndex + 1];
+                            ctx.beginPath();
+                            
+                            for (let i = 0; i < thread.nodes.length; i += 10) {
+                                if (Math.sin(i * 0.1 + timeRef.current) > 0.5) {
+                                    const node = thread.nodes[i];
+                                    const correspondingY = thread.baseY + 
+                                        (nextThread.baseY - thread.baseY) * 
+                                        (0.5 + Math.sin(timeRef.current * 0.3 + i * 0.05) * 0.5);
+                                    
+                                    ctx.moveTo(node.x, node.y);
+                                    ctx.lineTo(node.x, correspondingY);
+                                }
+                            }
+                            
+                            ctx.strokeStyle = `rgba(190, 190, 200, 0.03)`;
+                            ctx.lineWidth = 0.3;
+                            ctx.stroke();
+                        }
+                    });
+                    
+                    // Draw intersection points where threads cross
+                    for (let i = 0; i < threadsRef.current.length - 1; i++) {
+                        const thread1 = threadsRef.current[i];
+                        const thread2 = threadsRef.current[i + 1];
+                        
+                        for (let j = 0; j < thread1.nodes.length; j++) {
+                            if (thread2.nodes[j]) {
+                                const node1 = thread1.nodes[j];
+                                const node2 = thread2.nodes[j];
+                                
+                                if (Math.abs(node1.y - node2.y) < 5) {
+                                    // Threads are close - draw intersection point
+                                    const glowSize = 2 + Math.sin(timeRef.current * 2 + j * 0.1) * 1;
+                                    ctx.beginPath();
+                                    ctx.arc(node1.x, (node1.y + node2.y) / 2, glowSize, 0, Math.PI * 2);
+                                    ctx.fillStyle = 'rgba(160, 160, 170, 0.1)';
+                                    ctx.fill();
+                                }
+                            }
+                        }
+                    }
+                    
+                    animationRef.current = requestAnimationFrame(animate);
+                };
+                
+                animate();
+                
+                return () => {
+                    window.removeEventListener('resize', resize);
+                    if (animationRef.current) {
+                        cancelAnimationFrame(animationRef.current);
+                    }
+                };
+            }, []);
+
+            return (
+                <div className="relative w-full h-screen bg-gray-50">
+                    <canvas 
+                        ref={canvasRef}
+                        className="absolute inset-0"
+                    />
+                    <div className="absolute bottom-4 left-4 text-gray-300 text-xs font-light tracking-wider opacity-50">
+                        MATHEMATICAL SILK
+                    </div>
+                    <div className="absolute top-4 right-4 text-gray-300 text-xs font-light opacity-30">
+                        threads of equations weaving through space
+                    </div>
+                </div>
+            );
+        }
+
+        ReactDOM.render(<MathematicalSilk />, document.getElementById('root'));
+    </script>
+</body>
+</html>
