@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Harmonic Spiral Garden</title>
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { margin: 0; padding: 0; overflow: hidden; }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+
+        const HarmonicSpiralGarden = () => {
+            const canvasRef = useRef(null);
+            const animationRef = useRef(null);
+            const mouseRef = useRef({ x: 0.5, y: 0.5 });
+            const [isPaused, setIsPaused] = useState(false);
+
+            useEffect(() => {
+                const canvas = canvasRef.current;
+                if (!canvas) return;
+                
+                const ctx = canvas.getContext('2d');
+                let time = 0;
+
+                const resize = () => {
+                    canvas.width = window.innerWidth;
+                    canvas.height = window.innerHeight;
+                };
+                resize();
+                window.addEventListener('resize', resize);
+
+                const handleMouseMove = (e) => {
+                    mouseRef.current = {
+                        x: e.clientX / window.innerWidth,
+                        y: e.clientY / window.innerHeight
+                    };
+                };
+                window.addEventListener('mousemove', handleMouseMove);
+
+                const animate = () => {
+                    if (isPaused) {
+                        animationRef.current = requestAnimationFrame(animate);
+                        return;
+                    }
+
+                    // Create fade trail effect
+                    ctx.fillStyle = 'rgba(10, 10, 20, 0.08)';
+                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+                    const centerX = canvas.width / 2;
+                    const centerY = canvas.height / 2;
+                    const baseRadius = Math.min(canvas.width, canvas.height) * 0.35;
+                    
+                    // Number of spiral arms
+                    const arms = 5;
+                    // Points per arm
+                    const pointsPerArm = 40;
+                    
+                    time += 0.01;
+
+                    for (let arm = 0; arm < arms; arm++) {
+                        const armOffset = (arm * 2 * Math.PI) / arms;
+                        
+                        for (let i = 0; i < pointsPerArm; i++) {
+                            const t = i / pointsPerArm;
+                            
+                            // Logarithmic spiral equation
+                            const spiralRadius = baseRadius * Math.exp(t * 0.3) * (0.1 + t * 0.9);
+                            const angle = t * 4 * Math.PI + armOffset + time * 0.5;
+                            
+                            // Add harmonic oscillation
+                            const harmonicOffset = Math.sin(time * 2 + i * 0.3 + arm) * 20;
+                            const pulseRadius = spiralRadius + harmonicOffset;
+                            
+                            // Position with mouse influence
+                            const mouseInfluence = (mouseRef.current.x - 0.5) * 50;
+                            const x = centerX + Math.cos(angle) * pulseRadius + mouseInfluence * t;
+                            const y = centerY + Math.sin(angle) * pulseRadius + 
+                                       (mouseRef.current.y - 0.5) * 50 * t;
+                            
+                            // Size oscillation
+                            const sizeWave = Math.sin(time * 3 + i * 0.5 + arm * 2) * 0.5 + 1;
+                            const size = (2 + t * 4) * sizeWave;
+                            
+                            // Color based on position and time
+                            const hue = (arm * 72 + time * 20 + i * 3) % 360;
+                            const lightness = 50 + Math.sin(time * 2 + i * 0.2) * 20;
+                            const opacity = (1 - t * 0.3) * (0.6 + Math.sin(time * 4 + i) * 0.4);
+                            
+                            // Draw the point
+                            ctx.beginPath();
+                            ctx.arc(x, y, size, 0, Math.PI * 2);
+                            ctx.fillStyle = `hsla(${hue}, 70%, ${lightness}%, ${opacity})`;
+                            ctx.fill();
+                            
+                            // Add glow effect for larger points
+                            if (size > 3) {
+                                ctx.beginPath();
+                                ctx.arc(x, y, size * 2, 0, Math.PI * 2);
+                                ctx.fillStyle = `hsla(${hue}, 70%, ${lightness}%, ${opacity * 0.2})`;
+                                ctx.fill();
+                            }
+                        }
+                    }
+
+                    animationRef.current = requestAnimationFrame(animate);
+                };
+
+                animate();
+
+                return () => {
+                    window.removeEventListener('resize', resize);
+                    window.removeEventListener('mousemove', handleMouseMove);
+                    if (animationRef.current) {
+                        cancelAnimationFrame(animationRef.current);
+                    }
+                };
+            }, [isPaused]);
+
+            return (
+                <div className="relative w-full h-screen bg-gray-950 overflow-hidden">
+                    <canvas
+                        ref={canvasRef}
+                        className="absolute inset-0"
+                    />
+                    
+                    {/* Simple UI Controls */}
+                    <div className="absolute bottom-4 left-4 flex gap-2">
+                        <button
+                            onClick={() => setIsPaused(!isPaused)}
+                            className="px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-lg backdrop-blur-sm transition-colors duration-200 text-sm font-medium"
+                        >
+                            {isPaused ? 'Resume' : 'Pause'}
+                        </button>
+                        
+                        <div className="px-4 py-2 bg-white/5 text-white/60 rounded-lg backdrop-blur-sm text-sm">
+                            Move mouse to influence flow
+                        </div>
+                    </div>
+
+                    {/* Title */}
+                    <div className="absolute top-4 left-4">
+                        <h1 className="text-white/80 text-xl font-light tracking-wider">
+                            Harmonic Spiral Garden
+                        </h1>
+                        <p className="text-white/40 text-xs mt-1">
+                            Mathematical harmonics on logarithmic spirals
+                        </p>
+                    </div>
+                </div>
+            );
+        };
+
+        // Render the app
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<HarmonicSpiralGarden />);
+    </script>
+</body>
+</html>

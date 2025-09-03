@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dimensional Membrane Creatures</title>
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { margin: 0; padding: 0; overflow: hidden; background: #000; }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+
+        const DimensionalCreatures = () => {
+            const canvasRef = useRef(null);
+            const animationRef = useRef(null);
+            const mouseRef = useRef({ x: 0.5, y: 0.5 });
+            const [showInfo, setShowInfo] = useState(true);
+
+            useEffect(() => {
+                const canvas = canvasRef.current;
+                if (!canvas) return;
+                
+                const ctx = canvas.getContext('2d');
+                let time = 0;
+
+                const resize = () => {
+                    canvas.width = window.innerWidth;
+                    canvas.height = window.innerHeight;
+                };
+                resize();
+                window.addEventListener('resize', resize);
+
+                const handleMouseMove = (e) => {
+                    mouseRef.current = {
+                        x: e.clientX / window.innerWidth,
+                        y: e.clientY / window.innerHeight
+                    };
+                };
+                window.addEventListener('mousemove', handleMouseMove);
+
+                // Pseudo-random noise function
+                const noise = (x, y, z) => {
+                    const p = (n) => {
+                        n = (n << 13) ^ n;
+                        return 1.0 - ((n * (n * n * 15731 + 789221) + 1376312589) & 0x7fffffff) / 1073741824.0;
+                    };
+                    return p(Math.floor(x) + Math.floor(y) * 57 + Math.floor(z) * 131);
+                };
+
+                // Smooth interpolation
+                const smoothNoise = (x, y, z) => {
+                    const fx = x - Math.floor(x);
+                    const fy = y - Math.floor(y);
+                    const fz = z - Math.floor(z);
+                    
+                    const n000 = noise(Math.floor(x), Math.floor(y), Math.floor(z));
+                    const n100 = noise(Math.floor(x) + 1, Math.floor(y), Math.floor(z));
+                    const n010 = noise(Math.floor(x), Math.floor(y) + 1, Math.floor(z));
+                    const n110 = noise(Math.floor(x) + 1, Math.floor(y) + 1, Math.floor(z));
+                    
+                    const nx00 = n000 * (1 - fx) + n100 * fx;
+                    const nx10 = n010 * (1 - fx) + n110 * fx;
+                    
+                    return nx00 * (1 - fy) + nx10 * fy;
+                };
+
+                const animate = () => {
+                    // Dark fade effect
+                    ctx.fillStyle = 'rgba(0, 0, 0, 0.05)';
+                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+                    time += 0.008;
+                    
+                    // Number of creatures
+                    const creatures = 3;
+                    
+                    for (let c = 0; c < creatures; c++) {
+                        const creaturePhase = c * 2.094 + time * 0.3;
+                        const cx = canvas.width * (0.3 + 0.4 * Math.sin(creaturePhase));
+                        const cy = canvas.height * (0.3 + 0.4 * Math.cos(creaturePhase * 0.7));
+                        
+                        // Draw membrane body
+                        const segments = 64;
+                        for (let i = 0; i < segments; i++) {
+                            const angle = (i / segments) * Math.PI * 2;
+                            
+                            // Create undulating membrane
+                            for (let layer = 0; layer < 5; layer++) {
+                                const layerOffset = layer * 0.2;
+                                const noiseScale = 3;
+                                const noiseFactor = smoothNoise(
+                                    Math.cos(angle) * noiseScale + time,
+                                    Math.sin(angle) * noiseScale + time * 0.7,
+                                    c + layerOffset
+                                );
+                                
+                                // Non-euclidean distance calculation
+                                const mouseDx = mouseRef.current.x - 0.5;
+                                const mouseDy = mouseRef.current.y - 0.5;
+                                const mouseInfluence = Math.exp(-2 * (mouseDx * mouseDx + mouseDy * mouseDy));
+                                
+                                // Parametric surface equation with dimensional warping
+                                const r = 80 + 40 * noiseFactor + 30 * mouseInfluence * Math.sin(angle * 3 + time * 2);
+                                const dimensionalShift = Math.sin(time * 1.5 + angle * 2 + c) * 20;
+                                
+                                const x = cx + (r + dimensionalShift) * Math.cos(angle + layerOffset);
+                                const y = cy + (r + dimensionalShift) * Math.sin(angle + layerOffset * 0.7);
+                                
+                                // Membrane segments
+                                const nextAngle = ((i + 1) / segments) * Math.PI * 2;
+                                const nextNoise = smoothNoise(
+                                    Math.cos(nextAngle) * noiseScale + time,
+                                    Math.sin(nextAngle) * noiseScale + time * 0.7,
+                                    c + layerOffset
+                                );
+                                const nextR = 80 + 40 * nextNoise + 30 * mouseInfluence * Math.sin(nextAngle * 3 + time * 2);
+                                const nextDimShift = Math.sin(time * 1.5 + nextAngle * 2 + c) * 20;
+                                const nextX = cx + (nextR + nextDimShift) * Math.cos(nextAngle + layerOffset);
+                                const nextY = cy + (nextR + nextDimShift) * Math.sin(nextAngle + layerOffset * 0.7);
+                                
+                                // Draw membrane strand
+                                ctx.beginPath();
+                                ctx.moveTo(x, y);
+                                ctx.lineTo(nextX, nextY);
+                                
+                                // Iridescent colors based on dimensional phase
+                                const hue = (c * 120 + time * 30 + angle * 30 + layer * 20) % 360;
+                                const saturation = 50 + 30 * Math.sin(time * 2 + angle);
+                                const lightness = 30 + 20 * Math.sin(time * 3 + angle * 2 + layer);
+                                const alpha = 0.3 - layer * 0.05;
+                                
+                                ctx.strokeStyle = `hsla(${hue}, ${saturation}%, ${lightness}%, ${alpha})`;
+                                ctx.lineWidth = 2 - layer * 0.3;
+                                ctx.stroke();
+                            }
+                        }
+                        
+                        // Draw "eyes" that track the mouse
+                        const numEyes = 5;
+                        for (let e = 0; e < numEyes; e++) {
+                            const eyeAngle = (e / numEyes) * Math.PI * 2 + time * 0.5 + c;
+                            const eyeR = 60 + 20 * Math.sin(time * 2 + e);
+                            const eyeX = cx + eyeR * Math.cos(eyeAngle);
+                            const eyeY = cy + eyeR * Math.sin(eyeAngle);
+                            
+                            // Eye outer ring
+                            ctx.beginPath();
+                            ctx.arc(eyeX, eyeY, 12, 0, Math.PI * 2);
+                            ctx.fillStyle = `hsla(${c * 120 + e * 40}, 80%, 20%, 0.8)`;
+                            ctx.fill();
+                            
+                            // Eye iris tracking mouse
+                            const angleToMouse = Math.atan2(
+                                mouseRef.current.y * canvas.height - eyeY,
+                                mouseRef.current.x * canvas.width - eyeX
+                            );
+                            const pupilX = eyeX + Math.cos(angleToMouse) * 4;
+                            const pupilY = eyeY + Math.sin(angleToMouse) * 4;
+                            
+                            // Iris
+                            ctx.beginPath();
+                            ctx.arc(pupilX, pupilY, 6, 0, Math.PI * 2);
+                            ctx.fillStyle = `hsla(${c * 120 + e * 40 + time * 20}, 90%, 50%, 0.9)`;
+                            ctx.fill();
+                            
+                            // Pupil
+                            ctx.beginPath();
+                            ctx.arc(pupilX, pupilY, 3, 0, Math.PI * 2);
+                            ctx.fillStyle = 'black';
+                            ctx.fill();
+                            
+                            // Eye glow
+                            const gradient = ctx.createRadialGradient(eyeX, eyeY, 0, eyeX, eyeY, 20);
+                            gradient.addColorStop(0, `hsla(${c * 120 + e * 40}, 100%, 60%, 0.2)`);
+                            gradient.addColorStop(1, 'transparent');
+                            ctx.fillStyle = gradient;
+                            ctx.fillRect(eyeX - 20, eyeY - 20, 40, 40);
+                        }
+                        
+                        // Dimensional tendrils
+                        for (let t = 0; t < 8; t++) {
+                            const tendrilAngle = (t / 8) * Math.PI * 2 + time + c;
+                            ctx.beginPath();
+                            ctx.moveTo(cx, cy);
+                            
+                            for (let p = 0; p < 20; p++) {
+                                const dist = p * 8;
+                                const wave = Math.sin(time * 3 + p * 0.5 + t) * 20;
+                                const tx = cx + Math.cos(tendrilAngle) * dist + wave * Math.cos(tendrilAngle + Math.PI/2);
+                                const ty = cy + Math.sin(tendrilAngle) * dist + wave * Math.sin(tendrilAngle + Math.PI/2);
+                                ctx.lineTo(tx, ty);
+                            }
+                            
+                            ctx.strokeStyle = `hsla(${c * 120 + t * 45}, 60%, 40%, ${0.3 - t * 0.02})`;
+                            ctx.lineWidth = 1;
+                            ctx.stroke();
+                        }
+                    }
+
+                    animationRef.current = requestAnimationFrame(animate);
+                };
+
+                animate();
+
+                return () => {
+                    window.removeEventListener('resize', resize);
+                    window.removeEventListener('mousemove', handleMouseMove);
+                    if (animationRef.current) {
+                        cancelAnimationFrame(animationRef.current);
+                    }
+                };
+            }, []);
+
+            return (
+                <div className="relative w-full h-screen bg-black overflow-hidden">
+                    <canvas
+                        ref={canvasRef}
+                        className="absolute inset-0"
+                    />
+                    
+                    {/* Minimal UI */}
+                    <div className="absolute top-4 left-4">
+                        <h1 className="text-purple-400/60 text-lg font-mono tracking-wider">
+                            DIMENSIONAL MEMBRANE CREATURES
+                        </h1>
+                        <p className="text-purple-300/30 text-xs mt-1 font-mono">
+                            They observe you from between dimensions
+                        </p>
+                    </div>
+
+                    <button
+                        onClick={() => setShowInfo(!showInfo)}
+                        className="absolute bottom-4 right-4 text-purple-400/40 hover:text-purple-400/60 transition-colors text-xs font-mono"
+                    >
+                        [{showInfo ? 'HIDE' : 'SHOW'} INFO]
+                    </button>
+
+                    {showInfo && (
+                        <div className="absolute bottom-4 left-4 text-purple-300/40 text-xs font-mono max-w-xs">
+                            <p>• MOVE CURSOR TO DISTURB DIMENSIONAL FIELD</p>
+                            <p>• ENTITIES EXIST IN NON-EUCLIDEAN SPACE</p>
+                            <p>• MEMBRANE OSCILLATION: ψ(θ,t) = R₀ + A·η(θ,t)</p>
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
+        // Render the app
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<DimensionalCreatures />);
+    </script>
+</body>
+</html>
