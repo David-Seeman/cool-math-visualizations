@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Braided Orbits in Möbius Space</title>
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background: #0f0f0f;
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+
+        function MobiusBraidSpace() {
+            const canvasRef = useRef(null);
+            const animationRef = useRef(null);
+            const timeRef = useRef(0);
+            const orbitsRef = useRef([]);
+            const transformsRef = useRef([]);
+
+            // Complex number operations
+            const complex = {
+                add: (z1, z2) => ({ re: z1.re + z2.re, im: z1.im + z2.im }),
+                sub: (z1, z2) => ({ re: z1.re - z2.re, im: z1.im - z2.im }),
+                mul: (z1, z2) => ({
+                    re: z1.re * z2.re - z1.im * z2.im,
+                    im: z1.re * z2.im + z1.im * z2.re
+                }),
+                div: (z1, z2) => {
+                    const denom = z2.re * z2.re + z2.im * z2.im;
+                    if (denom < 0.0001) return { re: 1000, im: 1000 }; // Handle near-singularity
+                    return {
+                        re: (z1.re * z2.re + z1.im * z2.im) / denom,
+                        im: (z1.im * z2.re - z1.re * z2.im) / denom
+                    };
+                },
+                abs: (z) => Math.sqrt(z.re * z.re + z.im * z.im),
+                arg: (z) => Math.atan2(z.im, z.re)
+            };
+
+            // Möbius transformation: f(z) = (az + b) / (cz + d)
+            class MobiusTransform {
+                constructor(a, b, c, d) {
+                    this.a = a;
+                    this.b = b;
+                    this.c = c;
+                    this.d = d;
+                    this.updateFixedPoints();
+                }
+                
+                apply(z) {
+                    const num = complex.add(complex.mul(this.a, z), this.b);
+                    const den = complex.add(complex.mul(this.c, z), this.d);
+                    return complex.div(num, den);
+                }
+                
+                updateFixedPoints() {
+                    // Fixed points satisfy z = (az + b)/(cz + d)
+                    // This gives cz² + (d-a)z - b = 0
+                    if (Math.abs(this.c.re) < 0.001 && Math.abs(this.c.im) < 0.001) {
+                        // c ≈ 0, transformation is nearly affine
+                        this.fixedPoints = [
+                            complex.div(this.b, complex.sub(this.d, this.a))
+                        ];
+                    } else {
+                        // Use quadratic formula for complex numbers
+                        const disc = complex.add(
+                            complex.mul(complex.sub(this.d, this.a), complex.sub(this.d, this.a)),
+                            complex.mul({re: 4, im: 0}, complex.mul(this.b, this.c))
+                        );
+                        const sqrtDisc = {
+                            re: Math.sqrt(complex.abs(disc)) * Math.cos(complex.arg(disc) / 2),
+                            im: Math.sqrt(complex.abs(disc)) * Math.sin(complex.arg(disc) / 2)
+                        };
+                        
+                        const twoC = complex.mul({re: 2, im: 0}, this.c);
+                        const aMinusD = complex.sub(this.a, this.d);
+                        
+                        this.fixedPoints = [
+                            complex.div(complex.add(aMinusD, sqrtDisc), twoC),
+                            complex.div(complex.sub(aMinusD, sqrtDisc), twoC)
+                        ];
+                    }
+                }
+                
+                // Interpolate to another transform
+                interpolate(other, t) {
+                    const lerp = (z1, z2, t) => ({
+                        re: z1.re * (1 - t) + z2.re * t,
+                        im: z1.im * (1 - t) + z2.im * t
+                    });
+                    return new MobiusTransform(
+                        lerp(this.a, other.a, t),
+                        lerp(this.b, other.b, t),
+                        lerp(this.c, other.c, t),
+                        lerp(this.d, other.d, t)
+                    );
+                }
+            }
+
+            class OrbitTracker {
+                constructor(z0, color) {
+                    this.z = z0;
+                    this.z0 = z0;
+                    this.path = [];
+                    this.maxPathLength = 150;
+                    this.color = color;
+                    this.windingNumber = 0;
+                    this.lastArg = complex.arg(z0);
+                }
+                
+                update(transforms, time) {
+                    // Apply composition of slowly morphing transforms
+                    let z = this.z;
+                    
+                    for (let i = 0; i < transforms.length; i++) {
+                        const t1 = transforms[i];
+                        const t2 = transforms[(i + 1) % transforms.length];
+                        const morphParam = (Math.sin(time * 0.3 + i) + 1) / 2;
+                        const morphedTransform = t1.interpolate(t2, morphParam);
+                        z = morphedTransform.apply(z);
+                    }
+                    
+                    // Apply a slow rotation in parameter space
+                    const rotationAngle = time * 0.05;
+                    const rotation = new MobiusTransform(
+                        {re: Math.cos(rotationAngle), im: Math.sin(rotationAngle)},
+                        {re: 0, im: 0},
+                        {re: 0, im: 0},
+                        {re: 1, im: 0}
+                    );
+                    z = rotation.apply(z);
+                    
+                    // Check for bounded orbit (if too far, apply inversion)
+                    const r = complex.abs(z);
+                    if (r > 3) {
+                        // Inversion z -> 1/z brings points back
+                        z = complex.div({re: 1, im: 0}, z);
+                    }
+                    
+                    this.z = z;
+                    
+                    // Track winding number
+                    const newArg = complex.arg(z);
+                    let dArg = newArg - this.lastArg;
+                    if (dArg > Math.PI) dArg -= 2 * Math.PI;
+                    if (dArg < -Math.PI) dArg += 2 * Math.PI;
+                    this.windingNumber += dArg / (2 * Math.PI);
+                    this.lastArg = newArg;
+                    
+                    // Store path
+                    this.path.push({...z});
+                    if (this.path.length > this.maxPathLength) {
+                        this.path.shift();
+                    }
+                }
+                
+                draw(ctx, width, height, scale) {
+                    const toScreen = (z) => ({
+                        x: width / 2 + z.re * scale,
+                        y: height / 2 - z.im * scale
+                    });
+                    
+                    // Draw path with gradient based on winding
+                    for (let i = 1; i < this.path.length; i++) {
+                        const p1 = toScreen(this.path[i - 1]);
+                        const p2 = toScreen(this.path[i]);
+                        
+                        const alpha = (i / this.path.length) * 0.3;
+                        const windingHue = (this.windingNumber * 30) % 360;
+                        
+                        ctx.strokeStyle = `hsla(${windingHue}, 15%, ${35 + this.color * 20}%, ${alpha})`;
+                        ctx.lineWidth = 1 + (i / this.path.length) * 0.5;
+                        ctx.beginPath();
+                        ctx.moveTo(p1.x, p1.y);
+                        ctx.lineTo(p2.x, p2.y);
+                        ctx.stroke();
+                    }
+                    
+                    // Draw current position
+                    const pos = toScreen(this.z);
+                    ctx.fillStyle = `hsla(${(this.windingNumber * 30) % 360}, 20%, 60%, 0.8)`;
+                    ctx.beginPath();
+                    ctx.arc(pos.x, pos.y, 2, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            }
+
+            useEffect(() => {
+                const canvas = canvasRef.current;
+                const ctx = canvas.getContext('2d');
+                
+                const resize = () => {
+                    canvas.width = window.innerWidth;
+                    canvas.height = window.innerHeight;
+                };
+                
+                resize();
+                window.addEventListener('resize', resize);
+
+                // Initialize Möbius transformations with interesting parameters
+                transformsRef.current = [
+                    new MobiusTransform(
+                        {re: 1.2, im: 0.3},
+                        {re: 0.1, im: -0.2},
+                        {re: 0.4, im: 0.1},
+                        {re: 1, im: 0}
+                    ),
+                    new MobiusTransform(
+                        {re: 0.9, im: -0.4},
+                        {re: -0.3, im: 0.1},
+                        {re: 0.2, im: -0.3},
+                        {re: 1.1, im: 0.2}
+                    ),
+                    new MobiusTransform(
+                        {re: 0.7, im: 0.6},
+                        {re: 0.2, im: 0.3},
+                        {re: -0.1, im: 0.4},
+                        {re: 0.9, im: -0.1}
+                    )
+                ];
+
+                // Initialize orbit trackers on a circle
+                orbitsRef.current = [];
+                const numOrbits = 8;
+                for (let i = 0; i < numOrbits; i++) {
+                    const angle = (i / numOrbits) * Math.PI * 2;
+                    const radius = 0.5;
+                    orbitsRef.current.push(new OrbitTracker(
+                        {
+                            re: radius * Math.cos(angle),
+                            im: radius * Math.sin(angle)
+                        },
+                        i / numOrbits
+                    ));
+                }
+
+                const draw = () => {
+                    const width = canvas.width;
+                    const height = canvas.height;
+                    const scale = Math.min(width, height) / 4;
+                    
+                    // Fade background
+                    ctx.fillStyle = 'rgba(15, 15, 15, 0.03)';
+                    ctx.fillRect(0, 0, width, height);
+                    
+                    timeRef.current += 0.01;
+                    const time = timeRef.current;
+                    
+                    // Slowly morph transformation parameters
+                    transformsRef.current.forEach((transform, i) => {
+                        const phase = time * 0.1 + i * Math.PI / 3;
+                        transform.a.re = 1.2 + 0.3 * Math.sin(phase);
+                        transform.a.im = 0.3 * Math.cos(phase * 1.3);
+                        transform.updateFixedPoints();
+                    });
+                    
+                    // Draw fixed points of transformations
+                    transformsRef.current.forEach((transform, ti) => {
+                        transform.fixedPoints.forEach((fp, i) => {
+                            if (complex.abs(fp) < 5) { // Only draw if reasonably close
+                                const x = width / 2 + fp.re * scale;
+                                const y = height / 2 - fp.im * scale;
+                                
+                                // Pulsing effect
+                                const pulse = 3 + Math.sin(time * 2 + ti + i) * 1;
+                                
+                                ctx.fillStyle = `rgba(60, 60, 70, ${0.1 + 0.05 * Math.sin(time)})`;
+                                ctx.beginPath();
+                                ctx.arc(x, y, pulse * 3, 0, Math.PI * 2);
+                                ctx.fill();
+                                
+                                ctx.fillStyle = 'rgba(100, 100, 110, 0.3)';
+                                ctx.beginPath();
+                                ctx.arc(x, y, pulse, 0, Math.PI * 2);
+                                ctx.fill();
+                            }
+                        });
+                    });
+                    
+                    // Update and draw orbits
+                    orbitsRef.current.forEach(orbit => {
+                        orbit.update(transformsRef.current, time);
+                        orbit.draw(ctx, width, height, scale);
+                    });
+                    
+                    animationRef.current = requestAnimationFrame(draw);
+                };
+                
+                draw();
+                
+                return () => {
+                    window.removeEventListener('resize', resize);
+                    if (animationRef.current) {
+                        cancelAnimationFrame(animationRef.current);
+                    }
+                };
+            }, []);
+
+            return (
+                <div className="relative w-screen h-screen bg-gray-950">
+                    <canvas 
+                        ref={canvasRef}
+                        className="absolute inset-0"
+                    />
+                    <div className="absolute bottom-4 left-4 text-gray-700 text-xs font-mono opacity-30">
+                        möbius braids: (az+b)/(cz+d) ∘ ... 
+                    </div>
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<MobiusBraidSpace />);
+    </script>
+</body>
+</html>

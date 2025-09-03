@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Braid Group Visualization</title>
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background: #fafaf9;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            appearance: none;
+            width: 12px;
+            height: 12px;
+            background: #a8a29e;
+            cursor: pointer;
+            border-radius: 50%;
+        }
+        input[type="range"]::-moz-range-thumb {
+            width: 12px;
+            height: 12px;
+            background: #a8a29e;
+            cursor: pointer;
+            border-radius: 50%;
+            border: none;
+        }
+        input[type="range"] {
+            appearance: none;
+            background: transparent;
+            cursor: pointer;
+        }
+        input[type="range"]::-webkit-slider-track {
+            background: #e7e5e4;
+            height: 2px;
+            border-radius: 1px;
+        }
+        input[type="range"]::-moz-range-track {
+            background: #e7e5e4;
+            height: 2px;
+            border-radius: 1px;
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+    <script type="text/babel">
+        const { useState, useEffect, useRef, useMemo } = React;
+
+        const BraidVisualization = ({ numStrands }) => {
+            const canvasRef = useRef(null);
+            const animationRef = useRef(null);
+            const timeRef = useRef(0);
+            const trailsRef = useRef([]);
+            
+            // Adjust braid period based on complexity
+            const braidPeriod = 6000 + numStrands * 400; // milliseconds for one braid cycle
+            
+            useEffect(() => {
+                const canvas = canvasRef.current;
+                const ctx = canvas.getContext('2d');
+                canvas.width = window.innerWidth;
+                canvas.height = window.innerHeight;
+                
+                // Initialize trails for each strand
+                trailsRef.current = Array(numStrands).fill(null).map(() => []);
+                const maxTrailLength = Math.min(100, 60 + numStrands * 4);
+                
+                // Braid generator function - implements σ_i (crossing of strand i over i+1)
+                const braidCrossing = (i, j, t, phase) => {
+                    const crossingDuration = Math.min(0.3, 0.2 + 0.02 * numStrands);
+                    const localT = (t + phase) % 1;
+                    
+                    if (localT < crossingDuration) {
+                        const s = localT / crossingDuration;
+                        const smooth = 0.5 * (1 - Math.cos(Math.PI * s));
+                        return {
+                            iOffset: smooth,
+                            jOffset: -smooth,
+                            iZ: 0.5 + 0.5 * Math.sin(Math.PI * s),
+                            jZ: 0.5 - 0.5 * Math.sin(Math.PI * s)
+                        };
+                    }
+                    return { iOffset: 0, jOffset: 0, iZ: 0.5, jZ: 0.5 };
+                };
+                
+                const animate = (timestamp) => {
+                    ctx.fillStyle = 'rgba(250, 250, 249, 0.08)';
+                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+                    
+                    timeRef.current = timestamp;
+                    const t = (timestamp % braidPeriod) / braidPeriod;
+                    
+                    const centerX = canvas.width / 2;
+                    const centerY = canvas.height / 2;
+                    const maxSpacing = Math.min(canvas.width, canvas.height) / 4;
+                    const spacing = Math.min(maxSpacing, (Math.min(canvas.width, canvas.height) * 0.8) / (numStrands + 1));
+                    
+                    // Calculate strand positions
+                    const positions = [];
+                    for (let i = 0; i < numStrands; i++) {
+                        const baseX = centerX + (i - (numStrands - 1) / 2) * spacing;
+                        const baseY = centerY;
+                        
+                        // Apply braid transformations
+                        let xOffset = 0;
+                        let zDepth = 0.5;
+                        
+                        // Create a braid pattern by applying crossings at different phases
+                        for (let j = 0; j < numStrands - 1; j++) {
+                            const phase = j / (numStrands - 1);
+                            if (i === j) {
+                                const crossing = braidCrossing(j, j + 1, t, phase);
+                                xOffset += crossing.iOffset * spacing * 0.7;
+                                zDepth = crossing.iZ;
+                            } else if (i === j + 1) {
+                                const crossing = braidCrossing(j, j + 1, t, phase);
+                                xOffset += crossing.jOffset * spacing * 0.7;
+                                zDepth = crossing.jZ;
+                            }
+                        }
+                        
+                        // Add gentle vertical oscillation
+                        const yOffset = (20 + numStrands * 2) * Math.sin(2 * Math.PI * t + (i * Math.PI / numStrands));
+                        
+                        positions.push({
+                            x: baseX + xOffset,
+                            y: baseY + yOffset,
+                            z: zDepth,
+                            index: i
+                        });
+                    }
+                    
+                    // Update trails
+                    positions.forEach((pos, i) => {
+                        if (trailsRef.current[i]) {
+                            trailsRef.current[i].push({...pos});
+                            if (trailsRef.current[i].length > maxTrailLength) {
+                                trailsRef.current[i].shift();
+                            }
+                        }
+                    });
+                    
+                    // Draw trails with proper depth ordering
+                    const allTrailPoints = [];
+                    trailsRef.current.forEach((trail, strandIndex) => {
+                        if (trail) {
+                            trail.forEach((point, pointIndex) => {
+                                allTrailPoints.push({
+                                    ...point,
+                                    strandIndex,
+                                    pointIndex,
+                                    trailProgress: pointIndex / trail.length
+                                });
+                            });
+                        }
+                    });
+                    
+                    // Sort by z-depth (back to front)
+                    allTrailPoints.sort((a, b) => a.z - b.z);
+                    
+                    // Draw sorted trail points
+                    allTrailPoints.forEach(point => {
+                        const opacity = point.trailProgress * 0.15 * (0.5 + 0.5 * point.z);
+                        const gray = Math.floor(120 + 60 * (point.strandIndex / numStrands));
+                        
+                        ctx.beginPath();
+                        ctx.arc(point.x, point.y, 2 * (0.7 + 0.3 * point.z), 0, 2 * Math.PI);
+                        ctx.fillStyle = `rgba(${gray}, ${gray}, ${gray}, ${opacity})`;
+                        ctx.fill();
+                    });
+                    
+                    // Sort strands by depth for correct rendering order
+                    const sortedPositions = [...positions].sort((a, b) => a.z - b.z);
+                    
+                    // Draw strands
+                    sortedPositions.forEach(pos => {
+                        const gray = Math.floor(80 + 40 * (pos.index / numStrands));
+                        const sizeBase = Math.max(4, 8 - numStrands * 0.3);
+                        const size = sizeBase * (0.7 + 0.6 * pos.z);
+                        const opacity = 0.3 + 0.4 * pos.z;
+                        
+                        // Outer glow
+                        ctx.beginPath();
+                        ctx.arc(pos.x, pos.y, size * 1.5, 0, 2 * Math.PI);
+                        const gradient = ctx.createRadialGradient(
+                            pos.x, pos.y, 0,
+                            pos.x, pos.y, size * 1.5
+                        );
+                        gradient.addColorStop(0, `rgba(${gray}, ${gray}, ${gray}, ${opacity * 0.5})`);
+                        gradient.addColorStop(1, 'rgba(200, 200, 200, 0)');
+                        ctx.fillStyle = gradient;
+                        ctx.fill();
+                        
+                        // Core
+                        ctx.beginPath();
+                        ctx.arc(pos.x, pos.y, size, 0, 2 * Math.PI);
+                        ctx.fillStyle = `rgba(${gray}, ${gray}, ${gray}, ${opacity})`;
+                        ctx.fill();
+                    });
+                    
+                    animationRef.current = requestAnimationFrame(animate);
+                };
+                
+                animate(0);
+                
+                const handleResize = () => {
+                    canvas.width = window.innerWidth;
+                    canvas.height = window.innerHeight;
+                };
+                
+                window.addEventListener('resize', handleResize);
+                
+                return () => {
+                    if (animationRef.current) {
+                        cancelAnimationFrame(animationRef.current);
+                    }
+                    window.removeEventListener('resize', handleResize);
+                };
+            }, [numStrands]);
+            
+            return (
+                <canvas 
+                    ref={canvasRef}
+                    className="absolute inset-0"
+                />
+            );
+        };
+
+        const App = () => {
+            const [numStrands, setNumStrands] = useState(5);
+            const [isChanging, setIsChanging] = useState(false);
+            
+            const handleStrandChange = (value) => {
+                setIsChanging(true);
+                setNumStrands(parseInt(value));
+                setTimeout(() => setIsChanging(false), 300);
+            };
+            
+            return (
+                <div className="relative w-full h-screen bg-stone-50">
+                    <div className={`absolute inset-0 transition-opacity duration-300 ${isChanging ? 'opacity-30' : 'opacity-100'}`}>
+                        <BraidVisualization numStrands={numStrands} />
+                    </div>
+                    
+                    <div className="absolute bottom-4 left-4 text-stone-400 text-xs font-light tracking-wider">
+                        BRAID GROUP B<sub>{numStrands}</sub> VISUALIZATION
+                    </div>
+                    
+                    <div className="absolute top-4 left-4 bg-stone-50/90 backdrop-blur-sm p-4 rounded-sm border border-stone-200/50">
+                        <div className="flex flex-col space-y-2">
+                            <label className="text-stone-500 text-xs font-light tracking-wider">
+                                SELECT BRAID GROUP
+                            </label>
+                            <div className="flex items-center space-x-3">
+                                <span className="text-stone-400 text-xs">B₂</span>
+                                <input
+                                    type="range"
+                                    min="2"
+                                    max="12"
+                                    value={numStrands}
+                                    onChange={(e) => handleStrandChange(e.target.value)}
+                                    className="w-32"
+                                />
+                                <span className="text-stone-400 text-xs">B₁₂</span>
+                            </div>
+                            <div className="text-stone-600 text-sm font-medium text-center">
+                                B<sub>{numStrands}</sub>
+                                <span className="text-stone-400 text-xs ml-2">
+                                    ({numStrands} strands, {numStrands - 1} generators)
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div className="absolute bottom-4 right-4 text-stone-400 text-xs max-w-xs text-right font-light">
+                        The braid group B<sub>n</sub> encodes all possible ways to braid n strands.
+                        Each generator σ<sub>i</sub> represents crossing strand i over strand i+1.
+                    </div>
+                </div>
+            );
+        };
+
+        ReactDOM.render(<App />, document.getElementById('root'));
+    </script>
+</body>
+</html>
