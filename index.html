@@ -6,270 +6,246 @@
     <title>Cool Math Visualizations</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@200;300;400;500;600&display=swap');
-        body { font-family: 'Inter', sans-serif; }
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@200;300;400;500&display=swap');
         
-        /* Animated gradient background */
-        .gradient-bg {
-            background: linear-gradient(-45deg, #0f0c29, #302b63, #24243e, #0f0c29);
-            background-size: 400% 400%;
-            animation: gradientShift 15s ease infinite;
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
         }
         
-        @keyframes gradientShift {
-            0% { background-position: 0% 50%; }
-            50% { background-position: 100% 50%; }
-            100% { background-position: 0% 50%; }
+        body { 
+            font-family: 'Inter', sans-serif;
+            background: #0a0a0a;
+            color: #ffffff;
+            overflow-x: hidden;
         }
         
-        /* Card hover effects */
+        /* Subtle gradient background */
+        .main-gradient {
+            position: fixed;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(ellipse at top, #1a1a2e 0%, #0a0a0a 50%);
+            z-index: -1;
+        }
+        
+        /* Simple card style */
         .viz-card {
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            background: rgba(255, 255, 255, 0.03);
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .viz-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: radial-gradient(circle at center, rgba(255,255,255,0.03), transparent 70%);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+        
+        .viz-card:hover::before {
+            opacity: 1;
         }
         
         .viz-card:hover {
-            transform: translateY(-8px) scale(1.02);
-            background: rgba(255, 255, 255, 0.06);
-            border-color: rgba(255, 255, 255, 0.2);
-            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+            transform: translateY(-4px);
+            background: rgba(255, 255, 255, 0.04);
+            border-color: rgba(255, 255, 255, 0.12);
         }
         
-        /* Animated dots background */
-        .dots-grid {
-            background-image: radial-gradient(circle, rgba(255, 255, 255, 0.1) 1px, transparent 1px);
-            background-size: 30px 30px;
-            animation: drift 20s linear infinite;
+        /* Clean emoji style */
+        .emoji {
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+            display: block;
+            filter: grayscale(20%);
+            transition: filter 0.3s ease;
         }
         
-        @keyframes drift {
-            from { background-position: 0 0; }
-            to { background-position: 30px 30px; }
+        .viz-card:hover .emoji {
+            filter: grayscale(0%);
         }
         
-        /* Glow effect */
-        .glow {
-            animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        /* Title animation - subtle */
+        h1 {
+            font-size: 3.5rem;
+            font-weight: 200;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.5rem;
         }
         
-        @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.7; }
+        /* Fade in animation */
+        .fade-in {
+            animation: fadeIn 0.8s ease forwards;
+            opacity: 0;
         }
         
-        /* Custom scrollbar */
+        @keyframes fadeIn {
+            to {
+                opacity: 1;
+            }
+        }
+        
+        /* Stagger children animations */
+        .stagger-in > * {
+            opacity: 0;
+            animation: fadeInUp 0.6s ease forwards;
+        }
+        
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        /* Coming soon style */
+        .coming-soon {
+            opacity: 0.3;
+            cursor: not-allowed;
+        }
+        
+        .coming-soon:hover {
+            transform: none;
+            background: rgba(255, 255, 255, 0.02);
+            border-color: rgba(255, 255, 255, 0.06);
+        }
+        
+        /* Subtle text gradient for header */
+        .gradient-text {
+            background: linear-gradient(135deg, #fff 0%, #888 100%);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        
+        /* Clean scrollbar */
         ::-webkit-scrollbar {
             width: 8px;
-            height: 8px;
         }
         
         ::-webkit-scrollbar-track {
-            background: rgba(255, 255, 255, 0.05);
+            background: #0a0a0a;
         }
         
         ::-webkit-scrollbar-thumb {
-            background: rgba(255, 255, 255, 0.2);
+            background: #333;
             border-radius: 4px;
         }
         
         ::-webkit-scrollbar-thumb:hover {
-            background: rgba(255, 255, 255, 0.3);
+            background: #444;
         }
     </style>
 </head>
-<body class="gradient-bg min-h-screen text-white overflow-x-hidden">
-    <!-- Animated background layer -->
-    <div class="fixed inset-0 dots-grid opacity-20 pointer-events-none"></div>
+<body>
+    <div class="main-gradient"></div>
     
-    <!-- Main content -->
-    <div class="relative z-10">
+    <div class="min-h-screen flex flex-col">
         <!-- Header -->
-        <header class="container mx-auto px-6 py-12 text-center">
-            <div class="inline-block">
-                <h1 class="text-5xl md:text-6xl font-extralight tracking-wider mb-4 glow">
-                    Cool Math Visualizations
-                </h1>
-                <div class="h-px bg-gradient-to-r from-transparent via-purple-400 to-transparent mb-6"></div>
-                <p class="text-gray-400 text-lg font-light tracking-wide">
-                    Interactive mathematical art where equations come alive
-                </p>
-            </div>
+        <header class="text-center pt-20 pb-16 fade-in">
+            <h1 class="gradient-text">Cool Math Visualizations</h1>
+            <p class="text-gray-500 text-lg font-light">
+                Interactive mathematical art
+            </p>
         </header>
 
-        <!-- Visualizations Grid -->
-        <main class="container mx-auto px-6 py-8 max-w-7xl">
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
-                
-                <!-- Harmonic Spiral Garden -->
-                <a href="sites/spiralgarden/index.html" class="viz-card rounded-xl p-6 group cursor-pointer">
-                    <div class="mb-4">
-                        <div class="h-40 rounded-lg bg-gradient-to-br from-purple-600/20 to-blue-600/20 flex items-center justify-center overflow-hidden relative">
-                            <!-- Decorative animation preview -->
-                            <div class="absolute inset-0 opacity-50">
-                                <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
-                                    <div class="w-32 h-32 border-2 border-purple-400/30 rounded-full animate-spin" style="animation-duration: 8s;"></div>
-                                    <div class="w-24 h-24 border-2 border-blue-400/30 rounded-full animate-spin absolute top-4 left-4" style="animation-duration: 6s; animation-direction: reverse;"></div>
-                                </div>
-                            </div>
-                            <span class="text-4xl z-10">🌀</span>
-                        </div>
-                    </div>
-                    <h3 class="text-xl font-light mb-2 group-hover:text-purple-400 transition-colors">
-                        Harmonic Spiral Garden
-                    </h3>
-                    <p class="text-gray-500 text-sm leading-relaxed">
-                        Logarithmic spirals dancing with harmonic oscillations, creating organic patterns that breathe with mathematical life
-                    </p>
-                    <div class="mt-4 text-xs text-gray-600">
-                        <span class="inline-block px-2 py-1 bg-purple-500/10 rounded-full mr-2">Interactive</span>
-                        <span class="inline-block px-2 py-1 bg-blue-500/10 rounded-full">Mouse-reactive</span>
-                    </div>
-                </a>
-
-                <!-- Dimensional Membrane Creatures -->
-                <a href="sites/creatures/index.html" class="viz-card rounded-xl p-6 group cursor-pointer">
-                    <div class="mb-4">
-                        <div class="h-40 rounded-lg bg-gradient-to-br from-green-600/20 to-purple-600/20 flex items-center justify-center overflow-hidden relative">
-                            <!-- Decorative animation preview -->
-                            <div class="absolute inset-0 opacity-50">
-                                <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
-                                    <div class="w-20 h-20 border-2 border-green-400/30 rounded-full animate-pulse"></div>
-                                    <div class="w-16 h-16 bg-purple-400/10 rounded-full absolute top-2 left-2 animate-ping" style="animation-duration: 2s;"></div>
-                                </div>
-                            </div>
-                            <span class="text-4xl z-10">👁️</span>
-                        </div>
-                    </div>
-                    <h3 class="text-xl font-light mb-2 group-hover:text-purple-400 transition-colors">
-                        Dimensional Membrane Creatures
-                    </h3>
-                    <p class="text-gray-500 text-sm leading-relaxed">
-                        Sentient mathematical beings with watchful eyes, existing between dimensions in non-Euclidean space
-                    </p>
-                    <div class="mt-4 text-xs text-gray-600">
-                        <span class="inline-block px-2 py-1 bg-green-500/10 rounded-full mr-2">Alien</span>
-                        <span class="inline-block px-2 py-1 bg-purple-500/10 rounded-full">Eye-tracking</span>
-                    </div>
-                </a>
-
-                <!-- Coming Soon Card 1 -->
-                <div class="viz-card rounded-xl p-6 opacity-50 cursor-not-allowed">
-                    <div class="mb-4">
-                        <div class="h-40 rounded-lg bg-gradient-to-br from-gray-600/20 to-gray-700/20 flex items-center justify-center">
-                            <span class="text-4xl opacity-30">🔮</span>
-                        </div>
-                    </div>
-                    <h3 class="text-xl font-light mb-2 text-gray-500">
-                        Coming Soon
-                    </h3>
-                    <p class="text-gray-600 text-sm leading-relaxed">
-                        New visualization arriving soon...
-                    </p>
-                    <div class="mt-4 text-xs text-gray-700">
-                        <span class="inline-block px-2 py-1 bg-gray-500/10 rounded-full">In Development</span>
-                    </div>
-                </div>
-
-                <!-- Coming Soon Card 2 -->
-                <div class="viz-card rounded-xl p-6 opacity-50 cursor-not-allowed">
-                    <div class="mb-4">
-                        <div class="h-40 rounded-lg bg-gradient-to-br from-gray-600/20 to-gray-700/20 flex items-center justify-center">
-                            <span class="text-4xl opacity-30">✨</span>
-                        </div>
-                    </div>
-                    <h3 class="text-xl font-light mb-2 text-gray-500">
-                        Coming Soon
-                    </h3>
-                    <p class="text-gray-600 text-sm leading-relaxed">
-                        New visualization arriving soon...
-                    </p>
-                    <div class="mt-4 text-xs text-gray-700">
-                        <span class="inline-block px-2 py-1 bg-gray-500/10 rounded-full">In Development</span>
-                    </div>
-                </div>
-
-                <!-- Coming Soon Card 3 -->
-                <div class="viz-card rounded-xl p-6 opacity-50 cursor-not-allowed">
-                    <div class="mb-4">
-                        <div class="h-40 rounded-lg bg-gradient-to-br from-gray-600/20 to-gray-700/20 flex items-center justify-center">
-                            <span class="text-4xl opacity-30">🎭</span>
-                        </div>
-                    </div>
-                    <h3 class="text-xl font-light mb-2 text-gray-500">
-                        Coming Soon
-                    </h3>
-                    <p class="text-gray-600 text-sm leading-relaxed">
-                        New visualization arriving soon...
-                    </p>
-                    <div class="mt-4 text-xs text-gray-700">
-                        <span class="inline-block px-2 py-1 bg-gray-500/10 rounded-full">In Development</span>
-                    </div>
-                </div>
-
-                <!-- Coming Soon Card 4 -->
-                <div class="viz-card rounded-xl p-6 opacity-50 cursor-not-allowed">
-                    <div class="mb-4">
-                        <div class="h-40 rounded-lg bg-gradient-to-br from-gray-600/20 to-gray-700/20 flex items-center justify-center">
-                            <span class="text-4xl opacity-30">🌊</span>
-                        </div>
-                    </div>
-                    <h3 class="text-xl font-light mb-2 text-gray-500">
-                        Coming Soon
-                    </h3>
-                    <p class="text-gray-600 text-sm leading-relaxed">
-                        New visualization arriving soon...
-                    </p>
-                    <div class="mt-4 text-xs text-gray-700">
-                        <span class="inline-block px-2 py-1 bg-gray-500/10 rounded-full">In Development</span>
-                    </div>
-                </div>
-
-            </div>
-
-            <!-- Info Section -->
-            <div class="text-center py-12 border-t border-white/10">
-                <p class="text-gray-500 text-sm mb-4">
-                    Each visualization is a self-contained interactive experience
-                </p>
-                <p class="text-gray-600 text-xs">
-                    Best viewed on desktop • Chrome/Firefox recommended • Move your mouse for interaction
-                </p>
+        <!-- Main Grid -->
+        <main class="flex-1 container mx-auto px-8 max-w-6xl">
+            <div id="visualizations-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 stagger-in">
+                <!-- Cards will be generated here -->
             </div>
         </main>
 
         <!-- Footer -->
-        <footer class="container mx-auto px-6 py-8 text-center text-gray-600 text-xs">
-            <p>Mathematical beauty through code</p>
+        <footer class="text-center py-12 mt-20 text-gray-600 text-sm fade-in" style="animation-delay: 0.4s;">
+            <p>Best viewed on desktop • Move your mouse to interact</p>
         </footer>
     </div>
 
-    <!-- Optional: Add floating math symbols as decoration -->
     <script>
-        // Add subtle floating animation to cards on load
-        document.addEventListener('DOMContentLoaded', () => {
-            const cards = document.querySelectorAll('.viz-card');
-            cards.forEach((card, index) => {
-                card.style.animation = `fadeInUp 0.6s ease-out ${index * 0.1}s both`;
-            });
-        });
+        // ============================================
+        // VISUALIZATION DATA - ADD NEW ONES HERE
+        // ============================================
+        const visualizations = [
+            {
+                folder: 'spricalgarden',
+                title: 'Harmonic Spiral Garden',
+                description: 'Dancing logarithmic spirals',
+                emoji: '🌀'
+            },
+            {
+                folder: 'creatures',
+                title: 'Membrane Creatures',
+                description: 'A strange animal with a strange shape',
+                emoji: '👁️'
+            },
+            {
+                 folder: 'harmonicresonance',
+                 title: 'Resonant Harmonic Waves',
+                 description: 'Colorful waves interacting through time',
+                 emoji: '✨'
+            },
+        ];
 
-        // CSS for the animation
-        const style = document.createElement('style');
-        style.textContent = `
-            @keyframes fadeInUp {
-                from {
-                    opacity: 0;
-                    transform: translateY(20px);
-                }
-                to {
-                    opacity: 1;
-                    transform: translateY(0);
-                }
-            }
-        `;
-        document.head.appendChild(style);
+        // ============================================
+        // CARD GENERATION
+        // ============================================
+        const grid = document.getElementById('visualizations-grid');
+        
+        // Create cards for existing visualizations
+        visualizations.forEach((viz, index) => {
+            const card = document.createElement('a');
+            card.href = `sites/${viz.folder}/index.html`;
+            card.className = 'viz-card rounded-lg p-8 block';
+            card.style.animationDelay = `${index * 0.1}s`;
+            
+            card.innerHTML = `
+                <span class="emoji">${viz.emoji}</span>
+                <h3 class="text-lg font-light mb-2 text-white/90">
+                    ${viz.title}
+                </h3>
+                <p class="text-gray-500 text-sm leading-relaxed">
+                    ${viz.description}
+                </p>
+            `;
+            
+            grid.appendChild(card);
+        });
+        
+        // Add "Coming Soon" placeholders
+        const totalSlots = 6;
+        const emptySlots = Math.max(0, totalSlots - visualizations.length);
+        
+        for (let i = 0; i < emptySlots; i++) {
+            const card = document.createElement('div');
+            card.className = 'viz-card coming-soon rounded-lg p-8';
+            card.style.animationDelay = `${(visualizations.length + i) * 0.1}s`;
+            
+            card.innerHTML = `
+                <span class="emoji opacity-30">○</span>
+                <h3 class="text-lg font-light mb-2 text-white/30">
+                    Coming Soon
+                </h3>
+                <p class="text-gray-700 text-sm leading-relaxed">
+                    New visualization
+                </p>
+            `;
+            
+            grid.appendChild(card);
+        }
     </script>
 </body>
 </html>
